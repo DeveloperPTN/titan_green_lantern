@@ -1,0 +1,169 @@
+
+// © ProTradersNetwork
+
+//@version=6
+indicator("Titan Green Lantern", format=format.price, precision=0, overlay=true)
+hideSecondaryLantern=input(true,"Hide Secondary Lantern")
+hideSuperWaveZone=input(false,"Hide Super Wave")
+superWaveSignal=input(true,"Laterns appear only when Super Wave in Uptrend")
+showPivots=input(true,"Show Pivot")
+alert=input(true,"Alert")
+/// HACO
+avgup = 34
+avgdn = 34
+haO=0.0 
+haco=0.0
+calc_tema(src, length) =>
+	ema1 = ta.ema(src, length)
+	ema2 = ta.ema(ema1, length)
+	ema3 = ta.ema(ema2, length)
+	3 * (ema1 - ema2) + ema3
+
+calc_zltema( src, length ) => 
+	tma1 = calc_tema( src, length ) 
+	tma2 = calc_tema( tma1, length ) 
+	diff = tma1 - tma2 
+	tma1 + diff  
+ 
+haO := (ohlc4[1] + nz(haO[1]))/2
+haC = (ohlc4+haO+math.max(high,haO)+math.min(low,haO))/4
+
+upTMA1= calc_zltema(haC,avgup)
+upTMA2= calc_zltema(upTMA1,avgup)
+upDiff= upTMA1 - upTMA2
+upZlHa= upTMA1 + upDiff
+upTMA12= calc_zltema(hl2,avgup)
+upTMA22= calc_zltema(upTMA12,avgup)
+upDiff2= upTMA12 - upTMA22
+upZlCl= upTMA12 + upDiff2
+upZlDiff= upZlCl - upZlHa
+upKeep1= (haC >= haO) and (haC[1] >= haO[1])
+upKeep2= upZlDiff>=0
+upKeeping= (upKeep1 or upKeep2)
+upKeepAll= upKeeping or (upKeeping[1] and (close>=open) or close>=close[1])
+upKeep3= (math.abs(close-open)<(high-low)*0.35 and high>=(low[1]))
+upTrend= upKeepAll or (upKeepAll[1] and upKeep3)
+
+dnTMA1= calc_zltema(haC,avgdn)
+dnTMA2= calc_zltema(dnTMA1,avgdn)
+dnDiff= dnTMA1 - dnTMA2
+dnZlHa= dnTMA1 + dnDiff
+dnTMA12= calc_zltema(hl2,avgdn)
+dnTMA22= calc_zltema(dnTMA12,avgdn)
+dnDiff2= dnTMA12 - dnTMA22
+dnZlCl= dnTMA12 + dnDiff2
+dnZlDiff= dnZlCl - dnZlHa
+dnKeep1= (haC<haO) and (haC[1]<haO[1]) 
+dnKeep2= dnZlDiff<0
+dnKeep3= math.abs(close-open)<(high-low)*0.35 and low<=high[1]
+dnKeeping= dnKeep1 or dnKeep2
+dnKeepAll= dnKeeping or (dnKeeping[1] and (close<open) or (close<close[1]))
+dnTrend= dnKeepAll or (dnKeepAll[1] and dnKeep3)
+
+upw= dnTrend==false and dnTrend[1] and upTrend
+dnw= upTrend==false and upTrend[1] and dnTrend
+haco:= upw?1:dnw?-1:haco[1]
+
+haco_c=haco>0?color.green:color.red
+//plot( haco , style=plot.style_columns, color=haco_c)
+
+
+/// CM Williams
+pd = 22
+bbl = 20
+mult = 2.0 
+lb = 50
+ph = .85
+pl = 1.01
+
+wvf = ((ta.highest(close, pd)-low)/(ta.highest(close, pd)))*100
+
+sDev = mult * ta.stdev(wvf, bbl)
+midLine = ta.sma(wvf, bbl)
+lowerBand = midLine - sDev
+upperBand = midLine + sDev
+
+rangeHigh = (ta.highest(wvf, lb)) * ph
+rangeLow = (ta.lowest(wvf, lb)) * pl
+
+cw=wvf >= upperBand or wvf >= rangeHigh 
+col = wvf >= upperBand or wvf >= rangeHigh ? color.lime : color.gray
+//plot(wvf, title="Williams Vix Fix", style=plot.style_histogram, linewidth = 4, color=col)
+
+// DSR MA
+emaMainLength = 200
+emaDSR1Length = 50
+emaDSR2Length = 30
+
+// Get EMAs
+ema200      = ta.ema(close, emaMainLength)
+ema50       = ta.ema(close, emaDSR1Length)
+ema30       = ta.ema(close, emaDSR2Length)
+bullTrend   =  ema200 < ema50 and ema50 < ema30 // Bullish trend
+bearTrend   =  ema200 > ema50 and ema50 > ema30 // Bearish trend
+
+// Fractals
+// downFractal
+bool downflagDownFrontier = true
+bool downflagUpFrontier0 = true
+bool downflagUpFrontier1 = true
+bool downflagUpFrontier2 = true
+bool downflagUpFrontier3 = true
+bool downflagUpFrontier4 = true
+int n=3 // Fractal Period
+for i = 1 to n
+    downflagDownFrontier := downflagDownFrontier and (low[n-i] > low[n])
+    downflagUpFrontier0 := downflagUpFrontier0 and (low[n+i] > low[n])
+    downflagUpFrontier1 := downflagUpFrontier1 and (low[n+1] >= low[n] and low[n+i + 1] > low[n])
+    downflagUpFrontier2 := downflagUpFrontier2 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+i + 2] > low[n])
+    downflagUpFrontier3 := downflagUpFrontier3 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+i + 3] > low[n])
+    downflagUpFrontier4 := downflagUpFrontier4 and (low[n+1] >= low[n] and low[n+2] >= low[n] and low[n+3] >= low[n] and low[n+4] >= low[n] and low[n+i + 4] > low[n])
+flagDownFrontier = downflagUpFrontier0 or downflagUpFrontier1 or downflagUpFrontier2 or downflagUpFrontier3 or downflagUpFrontier4
+
+downFractal = (downflagDownFrontier and flagDownFrontier)
+
+// Titan Green Lantern
+trend=(haco<0 and cw and (superWaveSignal==false or (superWaveSignal and bullTrend))) ? 2 : haco<0 ? 1 : 0
+trendColor=trend==2?color.lime:(trend==1 and hideSecondaryLantern==false)?#00332B:na
+plot( low,"Signal",color = trendColor,linewidth = 5,style = plot.style_circles )
+plotshape(downFractal and trend[n]==2,title = "Strong Signal", style=shape.triangleup, location=location.belowbar, offset=-n, color=color.yellow, size = size.tiny)
+plotshape(downFractal and trend[n]==2,title = "Strong Signal", style=shape.triangledown, location=location.belowbar, offset=-n, color=color.yellow, size = size.tiny)
+
+// Draw invisible plot lines required for wave zone color fill
+z1          = plot(ema30, color=na,editable = false)
+z2          = plot(ema50, color=na,editable = false)
+
+// Fill zone
+fill(z1, z2,title = "Bear Wave", color=hideSuperWaveZone==false and bearTrend ? color.new(color.red,80) : na)
+fill(z1, z2,title = "Bull Wave", color=hideSuperWaveZone==false and bullTrend ? color.new(color.green,80) : na)
+
+// Draw EMA
+plot(ta.ema(close,200),title = "EMA 200", color=#512DA8, linewidth=1)
+plot(ta.ema(close,100),title = "EMA 100", color=#006064, linewidth=1)
+plot(ta.ema(close,30),title = "EMA 30", color=color.yellow, linewidth=1)
+
+// PIVOT
+lengthGroupTitle = "LENGTH LEFT / RIGHT"
+colorGroupTitle = "Text Color / Label Color"
+leftLenH = 6
+rightLenH = 10
+textColorH = input(title="Pivot High", defval=color.black, inline="Pivot High", group=colorGroupTitle)
+labelColorH = input(title="", defval=color.yellow, inline="Pivot High", group=colorGroupTitle)
+
+leftLenL = 222
+rightLenL = 10
+textColorL = input(title="Pivot Low", defval=color.black, inline="Pivot Low", group=colorGroupTitle)
+labelColorL = input(title="", defval=color.lime, inline="Pivot Low", group=colorGroupTitle)
+
+pH = ta.pivothigh(leftLenH, rightLenH)
+pL = ta.pivotlow(leftLenL, rightLenL)
+drawLabel(_offset, _pivot, _style, _color, _textColor) =>
+    if not na(_pivot)
+        label.new(bar_index[_offset], _pivot, str.tostring(_pivot, format.mintick), style=_style, color=_color, textcolor=_textColor)
+if showPivots
+	drawLabel(rightLenH, pH, label.style_label_down, labelColorH, textColorH)
+	drawLabel(rightLenL, pL, label.style_label_up, labelColorL, textColorL)
+if trend[1]==2
+	alert("Green Lantern Signal..")
+
+
